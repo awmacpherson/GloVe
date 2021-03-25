@@ -31,8 +31,8 @@
 
 typedef struct vocabulary {
     char *word;
+    int count;
     long long code;
-    long long count;
 } VOCAB;
 
 int verbose = 2; // 0, 1, or 2
@@ -61,7 +61,8 @@ int hashinsert(HASHREC **ht, char *w) {
     HASHREC     *htmp, *hprv;
     unsigned int hval = HASHFN(w, TSIZE, SEED);
     
-    for (hprv = NULL, htmp = ht[hval]; htmp != NULL && scmp(htmp->word, w) != 0; hprv = htmp, htmp = htmp->next);
+    for (hprv = NULL, htmp = ht[hval]; htmp != NULL && scmp(htmp->word, w) != 0; hprv = htmp, htmp = htmp->next) ;
+    
     if (htmp == NULL) {
         htmp = (HASHREC *) malloc( sizeof(HASHREC) );
         htmp->word = (char *) malloc( strlen(w) + 1 );
@@ -97,7 +98,7 @@ int get_counts() {
     HASHREC *htmp;
     VOCAB *vocab;
     FILE *fid = stdin;
-    FILE *encoded_file = fopen("encoded", "w")
+    FILE *encoded_file = fopen("encoded", "w");
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
     int * encodedp = encoded;
     
