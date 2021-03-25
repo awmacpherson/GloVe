@@ -89,7 +89,8 @@ int hashinsert(HASHREC **ht, char *w) {
     }
 }
 
-int BUFSIZE = 1073741824;
+#define BUFSIZE 
+// int BUFSIZE = 1073741824;
 
 int get_counts() {
     long long i = 0, j = 0, vocab_size = 12500;
@@ -108,7 +109,7 @@ int get_counts() {
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
     if (verbose > 1) fprintf(stderr, "Processed %lld tokens.\n", i);
-    // sprintf(format,"%%%ds",MAX_STRING_LENGTH);
+    
     while ( ! feof(fid)) {
         // Insert all tokens into hashtable
         int nl = get_word(str, fid);
@@ -131,7 +132,9 @@ int get_counts() {
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
     if (encodedp != encoded) 
-        fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
+        num_bytes = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
+        fprintf(stderr, "%ld bytes written to disk.\n", num_bytes);
+        
     
     fclose(encoded_file);
     
