@@ -89,7 +89,7 @@ int hashinsert(HASHREC **ht, char *w) {
     }
 }
 
-#define BUFSIZE 
+#define BUFSIZE 134217728
 // int BUFSIZE = 1073741824;
 
 int get_counts() {
@@ -131,9 +131,10 @@ int get_counts() {
         }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
-    if (encodedp != encoded) 
+    if (encodedp != encoded) {
         num_bytes = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
         fprintf(stderr, "%ld bytes written to disk.\n", num_bytes);
+    }
         
     
     fclose(encoded_file);
