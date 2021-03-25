@@ -31,14 +31,14 @@
 
 typedef struct vocabulary {
     char *word;
-    int count;
-    long long code;
+    int code;
+    long long count;
 } VOCAB;
 
 int verbose = 2; // 0, 1, or 2
 long long min_count = 1; // min occurrences for inclusion in vocab
 long long max_vocab = 0; // max_vocab = 0 for no limit
-long long vocab_count = 0;
+int vocab_count = 0;
 
 
 /* Vocab frequency comparison; break ties alphabetically */
@@ -74,6 +74,7 @@ int hashinsert(HASHREC **ht, char *w) {
             ht[hval] = htmp;
         else
             hprv->next = htmp;
+        return htmp->code;
     }
     else {
         /* new records are not moved to front */
@@ -84,8 +85,8 @@ int hashinsert(HASHREC **ht, char *w) {
             htmp->next = ht[hval];
             ht[hval] = htmp;
         }
+        return htmp->code;
     }
-    return code;
 }
 
 int BUFSIZE = 1073741824;
