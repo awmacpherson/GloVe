@@ -120,7 +120,7 @@ int get_counts() {
         *encodedp++ = hashinsert(vocab_hash, str);
         if (((++i)%BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
-            if (!(encoded_file = fopen("encoded", "a+"))) {
+            if (!(encoded_file = fopen("encoded", "ab+"))) {
                 num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
                 fclose(encoded_file);
                 printf("%d bytes written to disk.\n", num_bytes);
