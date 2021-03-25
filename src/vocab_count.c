@@ -108,7 +108,6 @@ int get_counts() {
     size_t num_bytes;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
-    if (verbose > 1) fprintf(stderr, "Processed %lld tokens.\n", i);
     
     while ( ! feof(fid)) {
         // Insert all tokens into hashtable
@@ -125,14 +124,14 @@ int get_counts() {
         if (((++i)%BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
             num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-            fprintf(stderr, "%ld tokens written to disk.\n", num_bytes);
+            fprintf(stderr, "Wrote %ld tokens to disk.\n", num_bytes);
             encodedp = encoded;
         }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
     if (encodedp != encoded) {
         num_bytes = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
-        fprintf(stderr, "Final chunk: %ld bytes written to disk.\n", num_bytes);
+        fprintf(stderr, "Final chunk: wrote %ld tokens to disk.\n", num_bytes);
     }
         
     
@@ -167,7 +166,7 @@ int get_counts() {
             if (verbose > 0) fprintf(stderr, "Truncating vocabulary at min count %lld.\n",min_count);
             break;
         }
-        printf("%s %lld %d\n",vocab[i].word,vocab[i].count,vocab[i].code);
+        printf("%s %lld %d\n", vocab[i].word, vocab[i].count, vocab[i].code);
     }
     
     if (i == max_vocab && max_vocab < j) if (verbose > 0) fprintf(stderr, "Truncating vocabulary at size %lld.\n", max_vocab);

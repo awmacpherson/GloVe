@@ -318,7 +318,7 @@ int get_cooccurrence() {
             continue;
         }
         counter++;
-        if ((counter%100000) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld",counter);
+        if ((counter%100000000) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld\n",counter);
         htmp = hashsearch(vocab_hash, str);
         if (htmp == NULL) {
             if (verbose > 2) fprintf(stderr, "Not getting coocurs as word not in vocab\n");
