@@ -276,7 +276,7 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr, "table contains %lld elements.\n",lookup[a-1]);
     
     /* Allocate memory for full array which will store all cooccurrence counts for words whose product of frequency ranks is less than max_product */
-    bigram_table = (real *)calloc( lookup[a-1] , sizeof(real) );
+    bigram_table = (real *)calloc( lookup[a-1] , sizeof(real) );    
     if (bigram_table == NULL) {
         fprintf(stderr, "Couldn't allocate memory!");
         free_resources(vocab_hash, cr, lookup, history, bigram_table);

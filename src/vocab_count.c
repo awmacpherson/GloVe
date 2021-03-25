@@ -31,12 +31,14 @@
 
 typedef struct vocabulary {
     char *word;
+    long long code;
     long long count;
 } VOCAB;
 
 int verbose = 2; // 0, 1, or 2
 long long min_count = 1; // min occurrences for inclusion in vocab
 long long max_vocab = 0; // max_vocab = 0 for no limit
+long long vocab_count = 0;
 
 
 /* Vocab frequency comparison; break ties alphabetically */
@@ -55,7 +57,7 @@ int CompareVocab(const void *a, const void *b) {
 }
 
 /* Search hash table for given string, insert if not found */
-void hashinsert(HASHREC **ht, char *w) {
+int hashinsert(HASHREC **ht, char *w) {
     HASHREC     *htmp, *hprv;
     unsigned int hval = HASHFN(w, TSIZE, SEED);
     
@@ -65,6 +67,7 @@ void hashinsert(HASHREC **ht, char *w) {
         htmp->word = (char *) malloc( strlen(w) + 1 );
         strcpy(htmp->word, w);
         htmp->num = 1;
+        htmp->code = vocab_count++;
         htmp->next = NULL;
         if ( hprv==NULL )
             ht[hval] = htmp;
@@ -81,8 +84,10 @@ void hashinsert(HASHREC **ht, char *w) {
             ht[hval] = htmp;
         }
     }
-    return;
+    return code;
 }
+
+int BUFSIZE = 1073741824;
 
 int get_counts() {
     long long i = 0, j = 0, vocab_size = 12500;
@@ -92,6 +97,9 @@ int get_counts() {
     HASHREC *htmp;
     VOCAB *vocab;
     FILE *fid = stdin;
+    FILE *encoded_file = fopen("encoded", "w")
+    int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
+    int * encodedp = encoded;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
     if (verbose > 1) fprintf(stderr, "Processed %lld tokens.", i);
@@ -105,15 +113,23 @@ int get_counts() {
             free_table(vocab_hash);
             return 1;
         }
-        hashinsert(vocab_hash, str);
+        *encodedp++ = hashinsert(vocab_hash, str);
         if (((++i)%100000) == 0) if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens.", i);
+        if (i%BUFSIZE == 0) {
+            fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+            encodedp = encoded;
+        }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
+    fclose(encoded_file);
+    
     vocab = malloc(sizeof(VOCAB) * vocab_size);
+    
     for (i = 0; i < TSIZE; i++) { // Migrate vocab to array
         htmp = vocab_hash[i];
         while (htmp != NULL) {
             vocab[j].word = htmp->word;
+            vocab[j].code = htmp->code;
             vocab[j].count = htmp->num;
             j++;
             if (j>=vocab_size) {
@@ -136,7 +152,7 @@ int get_counts() {
             if (verbose > 0) fprintf(stderr, "Truncating vocabulary at min count %lld.\n",min_count);
             break;
         }
-        printf("%s %lld\n",vocab[i].word,vocab[i].count);
+        printf("%s %lld %d\n",vocab[i].word,vocab[i].count,vocab[i].code);
     }
     
     if (i == max_vocab && max_vocab < j) if (verbose > 0) fprintf(stderr, "Truncating vocabulary at size %lld.\n", max_vocab);

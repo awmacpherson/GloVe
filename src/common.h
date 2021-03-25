@@ -44,6 +44,7 @@ typedef struct cooccur_rec {
 typedef struct hashrec {
     char *word;
     long long num; //count or id
+    long long code;
     struct hashrec *next;
 } HASHREC;
 
