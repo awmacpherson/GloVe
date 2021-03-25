@@ -100,13 +100,14 @@ int get_counts() {
     VOCAB *vocab;
     FILE * fid = stdin;
     FILE * encoded_file;
+    if (!(encoded_file = fopen("encoded", "wb"))) return 1;
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
     int * encodedp = encoded;
     
     size_t num_bytes;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
-    if (verbose > 1) fprintf(stderr, "Processed %lld tokens.", i);
+    if (verbose > 1) fprintf(stderr, "Processed %lld tokens.\n", i);
     // sprintf(format,"%%%ds",MAX_STRING_LENGTH);
     while ( ! feof(fid)) {
         // Insert all tokens into hashtable
@@ -117,19 +118,21 @@ int get_counts() {
             free_table(vocab_hash);
             return 1;
         }
+        
         *encodedp++ = hashinsert(vocab_hash, str);
+        
         if (((++i)%BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
-            if (!(encoded_file = fopen("encoded", "ab+"))) {
-                num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-                fclose(encoded_file);
-                printf("%d bytes written to disk.\n", num_bytes);
-                encodedp = encoded;
-            }
-            else return 1; // failure
+            num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+            fclose(encoded_file);
+            fprintf(stderr, "%ld bytes written to disk.\n", num_bytes);
+            encodedp = encoded;
         }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
+    if (encodedp != encoded) 
+        fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
+    
     fclose(encoded_file);
     
     vocab = malloc(sizeof(VOCAB) * vocab_size);
