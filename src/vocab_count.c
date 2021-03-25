@@ -99,9 +99,11 @@ int get_counts() {
     HASHREC *htmp;
     VOCAB *vocab;
     FILE *fid = stdin;
-    FILE *encoded_file = fopen("encoded", "w");
+    FILE *encoded_file;
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
     int * encodedp = encoded;
+    
+    size_t num_bytes;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
     if (verbose > 1) fprintf(stderr, "Processed %lld tokens.", i);
@@ -116,9 +118,12 @@ int get_counts() {
             return 1;
         }
         *encodedp++ = hashinsert(vocab_hash, str);
-        if (((++i)%100000) == 0) if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens.", i);
-        if (i%BUFSIZE == 0) {
-            fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+        if (((++i)%BUFSIZE) == 0) {
+            if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
+            encoded_file = fopen("encoded", "a+")
+            num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+            fclose(encoded_file);
+            printf("%d bytes written to disk.\n", num_bytes)
             encodedp = encoded;
         }
     }
