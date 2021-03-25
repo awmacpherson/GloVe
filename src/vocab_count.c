@@ -98,8 +98,8 @@ int get_counts() {
     HASHREC **vocab_hash = inithashtable();
     HASHREC *htmp;
     VOCAB *vocab;
-    FILE *fid = stdin;
-    FILE *encoded_file;
+    FILE * fid = stdin;
+    FILE * encoded_file;
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
     int * encodedp = encoded;
     
@@ -120,11 +120,13 @@ int get_counts() {
         *encodedp++ = hashinsert(vocab_hash, str);
         if (((++i)%BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
-            encoded_file = fopen("encoded", "a+");
-            num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-            fclose(encoded_file);
-            printf("%d bytes written to disk.\n", num_bytes);
-            encodedp = encoded;
+            if (!(encoded_file = fopen("encoded", "a+"))) {
+                num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+                fclose(encoded_file);
+                printf("%d bytes written to disk.\n", num_bytes);
+                encodedp = encoded;
+            }
+            else return 1; // failure
         }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
