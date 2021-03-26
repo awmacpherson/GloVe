@@ -137,7 +137,7 @@ int get_counts() {
         
         if (((encodedp-encoded) % BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
-            num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+            num_words = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
             fprintf(stderr, "Wrote %ld tokens to disk.\n", num_bytes);
             encodedp = encoded;
         }
