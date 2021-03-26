@@ -313,7 +313,7 @@ int get_cooccurrence() {
     }
     
     fid = stdin;
-    if (verbose > 1) fprintf(stderr,"Processing token: 0");
+    if (verbose > 1) fprintf(stderr,"Processing 2-gram stats..");
 
     // if symmetric > 0, we can increment ind twice per iteration,
     // meaning up to 2x window_size in one loop
@@ -324,7 +324,7 @@ int get_cooccurrence() {
     
     int w2, w1, history[window_size];
     for ( int r = 0; r < window_size; r++ ) history[r] = 0;
-    while (1) {
+    while (!feof(fid)) {
         if (ind >= overflow_threshold) // ind == number of CRECs in table
             ind = write_overflow(cr, ind);
             // If overflow buffer is (almost) full, sort it and write it to temporary file
@@ -341,7 +341,7 @@ int get_cooccurrence() {
         if (verbose > 2) fprintf(stderr, "Maybe processing token: %s\n", str);
         if (w2 == -1) {
             // Newline, reset line index (j); maybe eof.
-/*            if (feof(fid)) {
+  /*          if (feof(fid)) {
                 if (verbose > 2) fprintf(stderr, "Not getting coocurs as at eof\n");
                 break;
             }*/
@@ -349,8 +349,8 @@ int get_cooccurrence() {
             if (verbose > 2) fprintf(stderr, "Not getting coocurs as at newline\n");
             continue;
         }
-        counter++;
-        if ((counter % overflow_threshold) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld\n",counter);
+        counter++; // global counter
+        if ((counter % overflow_threshold) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld tokens crunched...\n",counter);
         
         /*
         htmp = hashsearch(vocab_hash, str);
@@ -381,7 +381,7 @@ int get_cooccurrence() {
             }
         }
         history[j % window_size] = w2; // Target word is stored in circular buffer to become context word in the future
-        j++;
+        j++; // local counter
     }
     
     /* Write out temp buffer for the final time (it may not be full) */
