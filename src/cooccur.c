@@ -267,12 +267,12 @@ long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
 
 /* Collect word-word cooccurrence counts from input stream */
 int get_cooccurrence() {
-    int flag, x, y, fidcounter = 1;
-    long long a, j = 0, k, id, counter = 0, ind = 0, *lookup = NULL;
-    char format[20], filename[200], str[MAX_STRING_LENGTH + 1];
+    int x, y, fidcounter = 1;
+    long long a, j = 0, k, counter = 0, ind = 0, *lookup = NULL;
+    char filename[200], str[MAX_STRING_LENGTH + 1];
     FILE *fid, *foverflow;
     real *bigram_table = NULL, r;
-    HASHREC *htmp, **vocab_hash = inithashtable();
+    HASHREC **vocab_hash = inithashtable();
     CREC *cr = malloc(sizeof(CREC) * (overflow_length + 1));
     
     fprintf(stderr, "COUNTING COOCCURRENCES\n");
@@ -288,7 +288,8 @@ int get_cooccurrence() {
     if (vocab_size == -1) // there was an error
         free_resources(vocab_hash, cr, lookup, bigram_table); 
   */  
-    /* Build auxiliary lookup table used to index into bigram_table */
+    /* Build auxiliary lookup table used to index into bigram_table.
+        Starts counting at indices greater than max_product. */
     printf("Building lookup table..,");
     if (!( lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) ) )){
         fprintf(stderr, "Couldn't allocate memory!");
@@ -300,11 +301,11 @@ int get_cooccurrence() {
         if ((lookup[a] = max_product / a) < vocab_size) lookup[a] += lookup[a-1];
         else lookup[a] = lookup[a-1] + vocab_size;
     }
-    if (verbose > 1) fprintf(stderr, "table contains %lld elements.\n",lookup[a-1]);
+    if (verbose > 1) fprintf(stderr, "table contains %lld elements.\n",lookup[vocab_size]);
     
     
     /* Allocate memory for full array which will store all cooccurrence counts for words whose product of frequency ranks is less than max_product */
-    bigram_table = (real *)calloc( lookup[a-1] , sizeof(real) );    
+    bigram_table = (real *)calloc( lookup[vocab_size] , sizeof(real) );    
     if (bigram_table == NULL) {
         fprintf(stderr, "Couldn't allocate memory!");
         free_resources(vocab_hash, cr, lookup, bigram_table);
@@ -321,7 +322,7 @@ int get_cooccurrence() {
     /* For each token in input stream, calculate a weighted cooccurrence sum within window_size */
     
     
-    int w2, w1, history[window_size];
+    int w2, w1, history[window_size] = {0};
     while (1) {
         if (ind >= overflow_threshold) // ind == number of CRECs in table
             ind = write_overflow(cr, ind);
@@ -337,7 +338,7 @@ int get_cooccurrence() {
         fread(&w2, sizeof(int), 1, fid);
 //        flag = get_word(str, fid);
         if (verbose > 2) fprintf(stderr, "Maybe processing token: %s\n", str);
-        if (w1 == -1) {
+        if (w2 == -1) {
             // Newline, reset line index (j); maybe eof.
 /*            if (feof(fid)) {
                 if (verbose > 2) fprintf(stderr, "Not getting coocurs as at eof\n");
@@ -359,8 +360,8 @@ int get_cooccurrence() {
         
         //w2 = htmp->num; // Target word (frequency rank)
         for (k = j - 1; k >= ( (j > window_size) ? j - window_size : 0 ); k--) { // Iterate over all words to the left of target word, but not past beginning of line
-            w1 = history[k % window_size]; // Context word (frequency rank)
-            if (verbose > 2) fprintf(stderr, "Adding cooccur between words %lld and %lld.\n", w1, w2);
+            w1 = history[k % window_size]; // Context word (frequency rank) (this has a small fart for the first k entries)
+            if (verbose > 2) fprintf(stderr, "Adding cooccur between words %d and %d.\n", w1, w2);
             if ( w1 < max_product/(w2+1) ) { // Product is small enough to store in a full array
                 bigram_table[lookup[w1-1] + w2 - 2] += distance_weighting ? 1.0/((real)(j-k)) : 1.0; // Weight by inverse of distance between words if needed
                 if (symmetric > 0) bigram_table[lookup[w2-1] + w1 - 2] += distance_weighting ? 1.0/((real)(j-k)) : 1.0; // If symmetric context is used, exchange roles of w2 and w1 (ie look at right context too)
