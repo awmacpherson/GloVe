@@ -333,10 +333,10 @@ int get_cooccurrence() {
             foverflow = fopen(filename,"wb");
             ind = 0;
         }*/
-        fread(&w1, sizeof(int), 1, fid);
+        fread(&w2, sizeof(int), 1, fid);
 //        flag = get_word(str, fid);
         if (verbose > 2) fprintf(stderr, "Maybe processing token: %s\n", str);
-        if (word == -1) {
+        if (w1 == -1) {
             // Newline, reset line index (j); maybe eof.
 /*            if (feof(fid)) {
                 if (verbose > 2) fprintf(stderr, "Not getting coocurs as at eof\n");
