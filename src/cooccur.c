@@ -322,7 +322,8 @@ int get_cooccurrence() {
     /* For each token in input stream, calculate a weighted cooccurrence sum within window_size */
     
     
-    int w2, w1, history[window_size] = {0};
+    int w2, w1, history[window_size];
+    for ( int r = 0; r < window_size; r++ ) history[r] = 0;
     while (1) {
         if (ind >= overflow_threshold) // ind == number of CRECs in table
             ind = write_overflow(cr, ind);
