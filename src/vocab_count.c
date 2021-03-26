@@ -138,14 +138,14 @@ int get_counts() {
         if (((encodedp-encoded) % BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
             num_words = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-            fprintf(stderr, "Wrote %ld tokens to disk.\n", num_bytes);
+            fprintf(stderr, "Wrote %ld tokens to disk.\n", num_words);
             encodedp = encoded;
         }
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
     if (encodedp != encoded) {
         num_words = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
-        fprintf(stderr, "Final chunk: wrote %ld tokens to disk.\n", num_bytes);
+        fprintf(stderr, "Final chunk: wrote %ld tokens to disk.\n", num_words);
     }
         
     
