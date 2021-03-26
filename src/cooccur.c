@@ -411,7 +411,6 @@ int get_cooccurrence() {
     
     if (verbose > 1) fprintf(stderr,"%d files in total.\n",fidcounter + 1);
     fclose(fid);
-    fclose(foverflow);
     free_resources(vocab_hash, cr, lookup, bigram_table);
     return merge_files(fidcounter + 1); // Merge the sorted temporary files
 }
