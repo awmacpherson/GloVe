@@ -92,6 +92,18 @@ int hashinsert(HASHREC **ht, char *w) {
 #define BUFSIZE 134217728
 // int BUFSIZE = 1073741824;
 
+/* 
+    Definition of the behaviour:
+    Assigns non-negative integer codes to words in the order they are
+    encountered (type signed int). Codes are written to a buffer which is 
+    flushed to disk (as binary) every BUFSIZE tokens. Newlines trigger a -1
+    to be written to the buffer.
+
+    Codes are also recorded in the HASHREC struct and seriealized in the form
+    <word> <count> <code>\n
+    in the vocab file.
+*/
+
 int get_counts() {
     long long i = 0, j = 0, vocab_size = 12500;
     // char format[20];
@@ -103,16 +115,18 @@ int get_counts() {
     FILE * encoded_file;
     if (!(encoded_file = fopen("encoded", "wb"))) return 1;
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
-    int * encodedp = encoded;
-    
-    size_t num_bytes;
+    int * encodedp = encoded;    
+    size_t num_words;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
     
     while ( ! feof(fid)) {
         // Insert all tokens into hashtable
         int nl = get_word(str, fid);
-        if (nl) continue; // just a newline marker or feof
+        if (nl) { // just a newline marker or feof
+            *encodedp++ = -1; 
+            continue;
+        }            
         if (strcmp(str, "<unk>") == 0) {
             fprintf(stderr, "\nError, <unk> vector found in corpus.\nPlease remove <unk>s from your corpus (e.g. cat text8 | sed -e 's/<unk>/<raw_unk>/g' > text8.new)");
             free_table(vocab_hash);
@@ -121,7 +135,7 @@ int get_counts() {
         
         *encodedp++ = hashinsert(vocab_hash, str);
         
-        if (((++i)%BUFSIZE) == 0) {
+        if (((encodedp-encoded) % BUFSIZE) == 0) {
             if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
             num_bytes = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
             fprintf(stderr, "Wrote %ld tokens to disk.\n", num_bytes);
@@ -130,7 +144,7 @@ int get_counts() {
     }
     if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
     if (encodedp != encoded) {
-        num_bytes = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
+        num_words = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
         fprintf(stderr, "Final chunk: wrote %ld tokens to disk.\n", num_bytes);
     }
         
@@ -166,7 +180,7 @@ int get_counts() {
             if (verbose > 0) fprintf(stderr, "Truncating vocabulary at min count %lld.\n",min_count);
             break;
         }
-        printf("%s %lld %d\n", vocab[i].word, vocab[i].count, vocab[i].code);
+        printf("%s %lld %d\n", vocab[i].word, vocab[i].count, vocab[i].code); // for some reason this prints an extraneous newline.
     }
     
     if (i == max_vocab && max_vocab < j) if (verbose > 0) fprintf(stderr, "Truncating vocabulary at size %lld.\n", max_vocab);

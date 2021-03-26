@@ -228,16 +228,49 @@ void free_resources(HASHREC** vocab_hash, CREC *cr, long long *lookup,
     free(bigram_table);
 }
 
+int write_overflow(CREC * cr, long long ind) {
+    static int fidcounter;
+    static char filename[200];
+    
+    qsort(cr, ind, sizeof(CREC), compare_crec);
+    
+    sprintf(filename,"%s_%04d.bin",file_head,fidcounter);
+    FILE * foverflow = fopen(filename,"wb");
+    write_chunk(cr,ind,foverflow);
+    fclose(foverflow);
+    fidcounter++;
+    return 0;
+}
+            
+/* Open vocab_file, populate vocab_hash, and return the number of entries added. */
+long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
+    char format[20], str[MAX_STRING_LENGTH + 1];
+    long long count;
+    sprintf(format,"%%%ds %%lld %%d", MAX_STRING_LENGTH); // Format to read from vocab file
+    if (verbose > 1) fprintf(stderr, "Reading vocab from file \"%s\"...", vocab_file);
+    
+    if ( !(FILE * fid = fopen(vocab_file,"r")) ) {
+        log_file_loading_error("vocab file", vocab_file);
+        free_resources(vocab_hash, cr, lookup, history, bigram_table);
+        return 1;
+    }
+    
+    while (fscanf(fid, format, str, &id) != EOF) hashinsert(vocab_hash, str, ++count); // Here id is not used: inserting vocab words into hash table with their frequency rank, count
+    fclose(fid);
+    if (verbose > 1) fprintf(stderr, "loaded %lld words.\n.", vocab_size);
+    return count;
+}
+  
+
 /* Collect word-word cooccurrence counts from input stream */
 int get_cooccurrence() {
     int flag, x, y, fidcounter = 1;
-    long long a, j = 0, k, id, counter = 0, ind = 0, vocab_size, w1, w2, *lookup = NULL, *history = NULL;
+    long long a, j = 0, k, id, counter = 0, ind = 0, vocab_size, *lookup = NULL;
     char format[20], filename[200], str[MAX_STRING_LENGTH + 1];
     FILE *fid, *foverflow;
     real *bigram_table = NULL, r;
     HASHREC *htmp, **vocab_hash = inithashtable();
     CREC *cr = malloc(sizeof(CREC) * (overflow_length + 1));
-    history = malloc(sizeof(long long) * window_size);
     
     fprintf(stderr, "COUNTING COOCCURRENCES\n");
     if (verbose > 0) {
@@ -247,23 +280,12 @@ int get_cooccurrence() {
     }
     if (verbose > 1) fprintf(stderr, "max product: %lld\n", max_product);
     if (verbose > 1) fprintf(stderr, "overflow length: %lld\n", overflow_length);
-    sprintf(format,"%%%ds %%lld", MAX_STRING_LENGTH); // Format to read from vocab file, which has (irrelevant) frequency data
-    if (verbose > 1) fprintf(stderr, "Reading vocab from file \"%s\"...", vocab_file);
-    fid = fopen(vocab_file,"r");
-    if (fid == NULL) { 
-        log_file_loading_error("vocab file", vocab_file);
-        free_resources(vocab_hash, cr, lookup, history, bigram_table);
-        return 1;
-    }
-    while (fscanf(fid, format, str, &id) != EOF) hashinsert(vocab_hash, str, ++j); // Here id is not used: inserting vocab words into hash table with their frequency rank, j
-    fclose(fid);
-    vocab_size = j;
-    j = 0;
-    if (verbose > 1) fprintf(stderr, "loaded %lld words.\nBuilding lookup table...", vocab_size);
+    
+    vocab_size = load_vocab(vocab_hash, vocab_file);
     
     /* Build auxiliary lookup table used to index into bigram_table */
-    lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) );
-    if (lookup == NULL) {
+    printf("Building lookup table..,");
+    if (!( lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) ) )){
         fprintf(stderr, "Couldn't allocate memory!");
         free_resources(vocab_hash, cr, lookup, history, bigram_table);
         return 1;
@@ -275,6 +297,7 @@ int get_cooccurrence() {
     }
     if (verbose > 1) fprintf(stderr, "table contains %lld elements.\n",lookup[a-1]);
     
+    
     /* Allocate memory for full array which will store all cooccurrence counts for words whose product of frequency ranks is less than max_product */
     bigram_table = (real *)calloc( lookup[a-1] , sizeof(real) );    
     if (bigram_table == NULL) {
@@ -284,9 +307,6 @@ int get_cooccurrence() {
     }
     
     fid = stdin;
-    // sprintf(format,"%%%ds",MAX_STRING_LENGTH);
-    sprintf(filename,"%s_%04d.bin", file_head, fidcounter);
-    foverflow = fopen(filename,"wb");
     if (verbose > 1) fprintf(stderr,"Processing token: 0");
 
     // if symmetric > 0, we can increment ind twice per iteration,
@@ -294,37 +314,45 @@ int get_cooccurrence() {
     int overflow_threshold = symmetric == 0 ? overflow_length - window_size : overflow_length - 2 * window_size;
     
     /* For each token in input stream, calculate a weighted cooccurrence sum within window_size */
+    
+    
+    int w2, w1, history[window_size];
     while (1) {
-        if (ind >= overflow_threshold) {
+        if (ind >= overflow_threshold) // ind == number of CRECs in table
+            ind = write_overflow(cr, ind);
             // If overflow buffer is (almost) full, sort it and write it to temporary file
-            qsort(cr, ind, sizeof(CREC), compare_crec);
+            /*qsort(cr, ind, sizeof(CREC), compare_crec);
             write_chunk(cr,ind,foverflow);
             fclose(foverflow);
             fidcounter++;
             sprintf(filename,"%s_%04d.bin",file_head,fidcounter);
             foverflow = fopen(filename,"wb");
             ind = 0;
-        }
-        flag = get_word(str, fid);
+        }*/
+        fread(&w1, sizeof(int), 1, fid);
+//        flag = get_word(str, fid);
         if (verbose > 2) fprintf(stderr, "Maybe processing token: %s\n", str);
-        if (flag == 1) {
+        if (word == -1) {
             // Newline, reset line index (j); maybe eof.
-            if (feof(fid)) {
+/*            if (feof(fid)) {
                 if (verbose > 2) fprintf(stderr, "Not getting coocurs as at eof\n");
                 break;
-            }
+            }*/
             j = 0;
             if (verbose > 2) fprintf(stderr, "Not getting coocurs as at newline\n");
             continue;
         }
         counter++;
-        if ((counter%100000000) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld\n",counter);
+        if ((counter % overflow_threshold) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld\n",counter);
+        
+        /*
         htmp = hashsearch(vocab_hash, str);
         if (htmp == NULL) {
             if (verbose > 2) fprintf(stderr, "Not getting coocurs as word not in vocab\n");
             continue; // Skip out-of-vocabulary words
-        }
-        w2 = htmp->num; // Target word (frequency rank)
+        }*/
+        
+        //w2 = htmp->num; // Target word (frequency rank)
         for (k = j - 1; k >= ( (j > window_size) ? j - window_size : 0 ); k--) { // Iterate over all words to the left of target word, but not past beginning of line
             w1 = history[k % window_size]; // Context word (frequency rank)
             if (verbose > 2) fprintf(stderr, "Adding cooccur between words %lld and %lld.\n", w1, w2);
