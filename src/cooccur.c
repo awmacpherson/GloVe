@@ -245,19 +245,22 @@ int write_overflow(CREC * cr, long long ind) {
 /* Open vocab_file, populate vocab_hash, and return the number of entries added. */
 long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
     char format[20], str[MAX_STRING_LENGTH + 1];
-    long long count;
+    long long count; // idk what this is for
     sprintf(format,"%%%ds %%lld %%d", MAX_STRING_LENGTH); // Format to read from vocab file
     if (verbose > 1) fprintf(stderr, "Reading vocab from file \"%s\"...", vocab_file);
     
-    if ( !(FILE * fid = fopen(vocab_file,"r")) ) {
+    FILE * fid;
+    if ( !(fid = fopen(vocab_file,"r")) ) {
         log_file_loading_error("vocab file", vocab_file);
-        free_resources(vocab_hash, cr, lookup, history, bigram_table);
-        return 1;
+        return -1;
     }
     
-    while (fscanf(fid, format, str, &id) != EOF) hashinsert(vocab_hash, str, ++count); // Here id is not used: inserting vocab words into hash table with their frequency rank, count
+    long long freq;
+    int code;
+    while (fscanf(fid, format, str, &freq, &code) != EOF) hashinsert(vocab_hash, str, ++count); 
+    // Here id is not used: inserting vocab words into hash table with their frequency rank, count
     fclose(fid);
-    if (verbose > 1) fprintf(stderr, "loaded %lld words.\n.", vocab_size);
+    if (verbose > 1) fprintf(stderr, "loaded %lld words.\n.", count);
     return count;
 }
   
@@ -282,12 +285,14 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr, "overflow length: %lld\n", overflow_length);
     
     vocab_size = load_vocab(vocab_hash, vocab_file);
+    if (vocab_size == -1) // there was an error
+        free_resources(vocab_hash, cr, lookup, bigram_table); 
     
     /* Build auxiliary lookup table used to index into bigram_table */
     printf("Building lookup table..,");
     if (!( lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) ) )){
         fprintf(stderr, "Couldn't allocate memory!");
-        free_resources(vocab_hash, cr, lookup, history, bigram_table);
+        free_resources(vocab_hash, cr, lookup, bigram_table);
         return 1;
     }
     lookup[0] = 1;
@@ -302,7 +307,7 @@ int get_cooccurrence() {
     bigram_table = (real *)calloc( lookup[a-1] , sizeof(real) );    
     if (bigram_table == NULL) {
         fprintf(stderr, "Couldn't allocate memory!");
-        free_resources(vocab_hash, cr, lookup, history, bigram_table);
+        free_resources(vocab_hash, cr, lookup, bigram_table);
         return 1;
     }
     
@@ -404,7 +409,7 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr,"%d files in total.\n",fidcounter + 1);
     fclose(fid);
     fclose(foverflow);
-    free_resources(vocab_hash, cr, lookup, history, bigram_table);
+    free_resources(vocab_hash, cr, lookup, bigram_table);
     return merge_files(fidcounter + 1); // Merge the sorted temporary files
 }
 
