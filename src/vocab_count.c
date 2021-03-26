@@ -116,7 +116,7 @@ int get_counts() {
     if (!(encoded_file = fopen("encoded", "wb"))) return 1;
     int * encoded = (int *) malloc(BUFSIZE * sizeof(int));
     int * encodedp = encoded;    
-    size_t num_words;
+    size_t num_words = 0;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
     
@@ -136,9 +136,9 @@ int get_counts() {
         *encodedp++ = hashinsert(vocab_hash, str);
         
         if (((encodedp-encoded) % BUFSIZE) == 0) {
-            if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
-            num_words = fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-            fprintf(stderr, "Wrote %ld tokens to disk.\n", num_words);
+//            if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
+            num_words += fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
+            if (verbose > 1) fprintf(stderr, "Written %ld encoded tokens to disk.\n", num_words);
             encodedp = encoded;
         }
     }
