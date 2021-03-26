@@ -45,6 +45,7 @@ real memory_limit = 3; // soft limit, in gigabytes, used to estimate optimal arr
 int distance_weighting = 1; // Flag to control the distance weighting of cooccurrence counts
 char *vocab_file, *file_head;
 int vocab_size;
+size_t _;
 
 /* Search hash table for given string, return record if found, else NULL */
 HASHREC *hashsearch(HASHREC **ht, char *w) {
@@ -171,7 +172,7 @@ int merge_files(int num) {
     fid = calloc(num, sizeof(FILE));
     pq = malloc(sizeof(CRECID) * num);
     fout = stdout;
-    if (verbose > 1) fprintf(stderr, "Merging cooccurrence files: processed 0 lines.");
+    if (verbose > 1) fprintf(stderr, "Merging cooccurrence files: processed 0 lines.\n");
     
     /* Open all files and add first entry of each to priority queue */
     for (i = 0; i < num; i++) {
@@ -198,7 +199,7 @@ int merge_files(int num) {
     /* Repeatedly pop top node and fill priority queue until files have reached EOF */
     while (size > 0) {
         counter += merge_write(pq[0], &old, fout); // Only count the lines written to file, not duplicates
-        if ((counter%100000) == 0) if (verbose > 1) fprintf(stderr,"\033[39G%lld lines.",counter);
+        if ((counter%134217728) == 0) if (verbose > 1) fprintf(stderr,"\033[39G%lld lines.\n",counter);
         i = pq[0].id;
         delete(pq, size);
         fread(&new, sizeof(CREC), 1, fid[i]);
