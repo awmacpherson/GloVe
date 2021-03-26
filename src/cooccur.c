@@ -44,6 +44,7 @@ int symmetric = 1; // 0: asymmetric, 1: symmetric
 real memory_limit = 3; // soft limit, in gigabytes, used to estimate optimal array sizes
 int distance_weighting = 1; // Flag to control the distance weighting of cooccurrence counts
 char *vocab_file, *file_head;
+int vocab_size;
 
 /* Search hash table for given string, return record if found, else NULL */
 HASHREC *hashsearch(HASHREC **ht, char *w) {
@@ -267,7 +268,7 @@ long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
 /* Collect word-word cooccurrence counts from input stream */
 int get_cooccurrence() {
     int flag, x, y, fidcounter = 1;
-    long long a, j = 0, k, id, counter = 0, ind = 0, vocab_size, *lookup = NULL;
+    long long a, j = 0, k, id, counter = 0, ind = 0, *lookup = NULL;
     char format[20], filename[200], str[MAX_STRING_LENGTH + 1];
     FILE *fid, *foverflow;
     real *bigram_table = NULL, r;
@@ -283,10 +284,10 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr, "max product: %lld\n", max_product);
     if (verbose > 1) fprintf(stderr, "overflow length: %lld\n", overflow_length);
     
-    vocab_size = load_vocab(vocab_hash, vocab_file);
+/*    vocab_size = load_vocab(vocab_hash, vocab_file);
     if (vocab_size == -1) // there was an error
         free_resources(vocab_hash, cr, lookup, bigram_table); 
-    
+  */  
     /* Build auxiliary lookup table used to index into bigram_table */
     printf("Building lookup table..,");
     if (!( lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) ) )){
@@ -440,7 +441,7 @@ int main(int argc, char **argv) {
         printf("\t\tFilename, excluding extension, for temporary files; default overflow\n");
         printf("\t-distance-weighting <int>\n");
         printf("\t\tIf <int> = 0, do not weight cooccurrence count by distance between words; if <int> = 1 (default), weight the cooccurrence count by inverse of distance between words\n");
-
+ 
         printf("\nExample usage:\n");
         printf("./cooccur -verbose 2 -symmetric 0 -window-size 10 -vocab-file vocab.txt -memory 8.0 -overflow-file tempoverflow < corpus.txt > cooccurrences.bin\n\n");
         free(vocab_file);
@@ -457,6 +458,7 @@ int main(int argc, char **argv) {
     else strcpy(file_head, (char *)"overflow");
     if ((i = find_arg((char *)"-memory", argc, argv)) > 0) memory_limit = atof(argv[i + 1]);
     if ((i = find_arg((char *)"-distance-weighting", argc, argv)) > 0)  distance_weighting = atoi(argv[i + 1]);
+    if ((i = find_arg((char *)"-vocab-size", argc, argv)) > 0) vocab_size = atoi(argv[i + 1]);
     
     /* The memory_limit determines a limit on the number of elements in bigram_table and the overflow buffer */
     /* Estimate the maximum value that max_product can take so that this limit is still satisfied */
