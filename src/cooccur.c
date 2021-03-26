@@ -220,11 +220,10 @@ int merge_files(int num) {
 }
 
 void free_resources(HASHREC** vocab_hash, CREC *cr, long long *lookup, 
-                    long long *history, real *bigram_table) {
+                    real *bigram_table) {
     free_table(vocab_hash);
     free(cr);
     free(lookup);
-    free(history);
     free(bigram_table);
 }
 
