@@ -270,7 +270,7 @@ int get_cooccurrence() {
     int x, y, fidcounter = 1;
     long long a, j = 0, k, counter = 0, ind = 0, *lookup = NULL;
     char filename[200], str[MAX_STRING_LENGTH + 1];
-    FILE *fid, *foverflow;
+    FILE *fid;
     real *bigram_table = NULL, r;
     HASHREC **vocab_hash = inithashtable();
     CREC *cr = malloc(sizeof(CREC) * (overflow_length + 1));
@@ -313,7 +313,7 @@ int get_cooccurrence() {
     }
     
     fid = stdin;
-    if (verbose > 1) fprintf(stderr,"Processing 2-gram stats..");
+    if (verbose > 1) fprintf(stderr,"Processing 2-gram stats...\n");
 
     // if symmetric > 0, we can increment ind twice per iteration,
     // meaning up to 2x window_size in one loop
@@ -385,13 +385,14 @@ int get_cooccurrence() {
     }
     
     /* Write out temp buffer for the final time (it may not be full) */
+    write_overflow(cr,ind);
+    
     if (verbose > 1) fprintf(stderr,"\033[0GProcessed %lld tokens.\n",counter);
-    qsort(cr, ind, sizeof(CREC), compare_crec);
-    write_chunk(cr,ind,foverflow);
-    sprintf(filename,"%s_0000.bin",file_head);
     
     /* Write out full bigram_table, skipping zeros */
     if (verbose > 1) fprintf(stderr, "Writing cooccurrences to disk");
+    
+    sprintf(filename,"%s_0000.bin",file_head);
     fid = fopen(filename,"wb");
     j = 1e6;
     for (x = 1; x <= vocab_size; x++) {
