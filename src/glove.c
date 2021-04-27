@@ -100,12 +100,15 @@ void initialize_parameters() {
     long long W_size = 2 * vocab_size * (vector_size + 1); // +1 to allocate space for bias
 
     /* Allocate space for word vectors and context word vectors, and correspodning gradsq */
-    a = posix_memalign((void **)&W, 128, W_size * sizeof(real)); // Might perform better than malloc
+    a = posix_memalign((void **)&W, 128, W_size * sizeof(real)); 
+    // Might perform better than malloc
+    
     if (W == NULL) {
         fprintf(stderr, "Error allocating memory for W\n");
         exit(1);
     }
-    a = posix_memalign((void **)&gradsq, 128, W_size * sizeof(real)); // Might perform better than malloc
+    a = posix_memalign((void **)&gradsq, 128, W_size * sizeof(real)); 
+    // Might perform better than malloc
     if (gradsq == NULL) {
         fprintf(stderr, "Error allocating memory for gradsq\n");
         free(W);
@@ -184,14 +187,19 @@ void *glove_thread(void *vid) {
         if (cr.word1 < 1 || cr.word2 < 1) { continue; }
         
         /* Get location of words in W & gradsq */
-        l1 = (cr.word1 - 1LL) * (vector_size + 1); // cr word indices start at 1
-        l2 = ((cr.word2 - 1LL) + vocab_size) * (vector_size + 1); // shift by vocab_size to get separate vectors for context words
+        l1 = (cr.word1 - 1LL) * (vector_size + 1); 
+        // cr word indices start at 1
+        l2 = ((cr.word2 - 1LL) + vocab_size) * (vector_size + 1); 
+        // shift by vocab_size to get separate vectors for context words
         
         /* Calculate cost, save diff for gradients */
         diff = 0;
-        for (b = 0; b < vector_size; b++) diff += W[b + l1] * W[b + l2]; // dot product of word and context word vector
-        diff += W[vector_size + l1] + W[vector_size + l2] - log(cr.val); // add separate bias for each word
-        fdiff = (cr.val > x_max) ? diff : pow(cr.val / x_max, alpha) * diff; // multiply weighting function (f) with diff
+        for (b = 0; b < vector_size; b++) diff += W[b + l1] * W[b + l2]; 
+        // dot product of word and context word vector
+        diff += W[vector_size + l1] + W[vector_size + l2] - log(cr.val); 
+        // add separate bias for each word
+        fdiff = (cr.val > x_max) ? diff : pow(cr.val / x_max, alpha) * diff; 
+        // multiply weighting function (f) with diff
 
         // Check for NaN and inf() in the diffs.
         if (isnan(diff) || isnan(fdiff) || isinf(diff) || isinf(fdiff)) {

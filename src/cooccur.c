@@ -78,14 +78,15 @@ void hashinsert(HASHREC **ht, char *w, long long id) {
     return;
 }
 
-/* Write sorted chunk of cooccurrence records to file, accumulating duplicate entries */
+/* Write sorted chunk of cooccurrence records to file, accumulating 
+ * CONSECUTIVE duplicate entries, which may appear because input is qsorted. */
 int write_chunk(CREC *cr, long long length, FILE *fout) {
     if (length == 0) return 0;
 
     long long a = 0;
     CREC old = cr[a];
     
-    for (a = 1; a < length; a++) {
+    for (a = 0; a < length; a++) {
         if (cr[a].word1 == old.word1 && cr[a].word2 == old.word2) {
             old.val += cr[a].val;
             continue;
@@ -178,7 +179,12 @@ int merge_files(int num) {
     for (i = 0; i < num; i++) {
         sprintf(filename,"%s_%04d.bin",file_head,i);
         fid[i] = fopen(filename,"rb");
-        if (fid[i] == NULL) {log_file_loading_error("file", filename); free_fid(fid, num); free(pq); return 1;}
+        if (fid[i] == NULL) {
+            log_file_loading_error("file", filename); 
+            free_fid(fid, num); 
+            free(pq); 
+            return 1;
+        }
         fread(&new, sizeof(CREC), 1, fid[i]);
         new.id = i;
         insert(pq,new,i+1);
@@ -189,7 +195,7 @@ int merge_files(int num) {
     old = pq[0];
     i = pq[0].id;
     delete(pq, size);
-    fread(&new, sizeof(CREC), 1, fid[i]);
+    _ = fread(&new, sizeof(CREC), 1, fid[i]);
     if (feof(fid[i])) size--;
     else {
         new.id = i;
@@ -198,55 +204,61 @@ int merge_files(int num) {
     
     /* Repeatedly pop top node and fill priority queue until files have reached EOF */
     while (size > 0) {
-        counter += merge_write(pq[0], &old, fout); // Only count the lines written to file, not duplicates
-        if ((counter%134217728) == 0) if (verbose > 1) fprintf(stderr,"\033[39G%lld lines.\n",counter);
+        counter += merge_write(pq[0], &old, fout); 
+	// Only count the lines written to file, not duplicates
+        if ( ((counter%134217728) == 0) && (verbose > 1) ) 
+		    fprintf(stderr,"%lld lines.\n",counter);
         i = pq[0].id;
         delete(pq, size);
-        fread(&new, sizeof(CREC), 1, fid[i]);
-        if (feof(fid[i])) size--;
+        _ = fread(&new, sizeof(CREC), 1, fid[i]);
+        
+            if (feof(fid[i])) 
+            size--;
         else {
             new.id = i;
             insert(pq, new, size);
         }
     }
+    
     fwrite(&old, sizeof(CREC), 1, fout);
     fprintf(stderr,"\033[0GMerging cooccurrence files: processed %lld lines.\n",++counter);
+    
     for (i=0;i<num;i++) {
         sprintf(filename,"%s_%04d.bin",file_head,i);
         remove(filename);
     }
+    
     fprintf(stderr,"\n");
     free_fid(fid, num);
     free(pq);
     return 0;
 }
 
-void free_resources(HASHREC** vocab_hash, CREC *cr, long long *lookup, 
+void free_resources(CREC *cr, long long *lookup, 
                     real *bigram_table) {
-    free_table(vocab_hash);
     free(cr);
     free(lookup);
     free(bigram_table);
 }
 
-int write_overflow(CREC * cr, long long ind) {
-    static int fidcounter;
+int write_overflow(CREC * cr, long long count) {
+    static int fidcounter = 1;
     static char filename[200];
+    sprintf(filename,"%s_%04d.bin", file_head, fidcounter);
     
-    qsort(cr, ind, sizeof(CREC), compare_crec);
+    qsort(cr, count, sizeof(CREC), compare_crec);
     
-    sprintf(filename,"%s_%04d.bin",file_head,fidcounter);
     FILE * foverflow = fopen(filename,"wb");
-    write_chunk(cr,ind,foverflow);
+    write_chunk(cr, count, foverflow);
     fclose(foverflow);
-    fidcounter++;
-    return 0;
+
+    return fidcounter++;
 }
             
 /* Open vocab_file, populate vocab_hash, and return the number of entries added. */
 long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
     char format[20], str[MAX_STRING_LENGTH + 1];
-    long long count; // idk what this is for
+    long long count = 0; // idk what this is for
     sprintf(format,"%%%ds %%lld %%d", MAX_STRING_LENGTH); // Format to read from vocab file
     if (verbose > 1) fprintf(stderr, "Reading vocab from file \"%s\"...", vocab_file);
     
@@ -267,9 +279,9 @@ long long load_vocab(HASHREC ** vocab_hash, char * vocab_file) {
   
 
 /* Collect word-word cooccurrence counts from input stream */
-int get_cooccurrence() {
-    int x, y, fidcounter = 1;
-    long long a, j = 0, k, counter = 0, ind = 0, *lookup = NULL;
+int get_cooccurrence(void) {
+    int x, y, fidcounter;
+    long long a, j = 0, k, counter = 0, ind = 0, /* position in CREC buffer */ *lookup = NULL;
     char filename[200], str[MAX_STRING_LENGTH + 1];
     FILE *fid;
     real *bigram_table = NULL, r;
@@ -285,19 +297,20 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr, "max product: %lld\n", max_product);
     if (verbose > 1) fprintf(stderr, "overflow length: %lld\n", overflow_length);
     
-/*    vocab_size = load_vocab(vocab_hash, vocab_file);
-    if (vocab_size == -1) // there was an error
-        free_resources(vocab_hash, cr, lookup, bigram_table); 
-  */  
+    fid = stdin;
+    // int vocab_size; // this is already globally defined
+    _ = fread(&vocab_size, sizeof(int), 1, fid); // the first entry in encoded is the vocab size
+    
     /* Build auxiliary lookup table used to index into bigram_table.
         Starts counting at indices greater than max_product. */
-    printf("Building lookup table..,");
+    fprintf(stderr, "Building lookup table..,");
     if (!( lookup = (long long *)calloc( vocab_size + 1, sizeof(long long) ) )){
         fprintf(stderr, "Couldn't allocate memory!");
-        free_resources(vocab_hash, cr, lookup, bigram_table);
+        free(cr);
+        free(lookup);
         return 1;
     }
-    lookup[0] = 1;
+    lookup[0] = 0;
     for (a = 1; a <= vocab_size; a++) {
         if ((lookup[a] = max_product / a) < vocab_size) lookup[a] += lookup[a-1];
         else lookup[a] = lookup[a-1] + vocab_size;
@@ -305,15 +318,15 @@ int get_cooccurrence() {
     if (verbose > 1) fprintf(stderr, "table contains %lld elements.\n",lookup[vocab_size]);
     
     
-    /* Allocate memory for full array which will store all cooccurrence counts for words whose product of frequency ranks is less than max_product */
+    /* Allocate memory for full array which will store all cooccurrence counts 
+     * for words whose product of frequency ranks is less than max_product */
     bigram_table = (real *)calloc( lookup[vocab_size] , sizeof(real) );    
     if (bigram_table == NULL) {
         fprintf(stderr, "Couldn't allocate memory!");
-        free_resources(vocab_hash, cr, lookup, bigram_table);
+        free_resources(cr, lookup, bigram_table);
         return 1;
     }
-    
-    fid = stdin;
+
     if (verbose > 1) fprintf(stderr,"Processing 2-gram stats...\n");
 
     // if symmetric > 0, we can increment ind twice per iteration,
@@ -322,53 +335,50 @@ int get_cooccurrence() {
     
     /* For each token in input stream, calculate a weighted cooccurrence sum within window_size */
     
-    
-    int w2, w1, history[window_size];
+    int w2, w1;
+    int * history = (int *) calloc(window_size, sizeof(int));
     for ( int r = 0; r < window_size; r++ ) history[r] = 0;
     while (!feof(fid)) {
-        if (ind >= overflow_threshold) // ind == number of CRECs in table
-            ind = write_overflow(cr, ind);
-            // If overflow buffer is (almost) full, sort it and write it to temporary file
-            /*qsort(cr, ind, sizeof(CREC), compare_crec);
-            write_chunk(cr,ind,foverflow);
-            fclose(foverflow);
-            fidcounter++;
-            sprintf(filename,"%s_%04d.bin",file_head,fidcounter);
-            foverflow = fopen(filename,"wb");
+        if (ind >= overflow_threshold) {// ind == number of CRECs in table
+            write_overflow(cr, ind);
             ind = 0;
-        }*/
-        fread(&w2, sizeof(int), 1, fid);
-//        flag = get_word(str, fid);
+        }
+        
+        if (!fread(&w2, sizeof(int), 1, fid)) {
+            fprintf(stderr, "breaking because end of file.");
+            break;
+        }
+
         if (verbose > 2) fprintf(stderr, "Maybe processing token: %s\n", str);
         if (w2 == -1) {
             // Newline, reset line index (j); maybe eof.
-  /*          if (feof(fid)) {
-                if (verbose > 2) fprintf(stderr, "Not getting coocurs as at eof\n");
-                break;
-            }*/
             j = 0;
             if (verbose > 2) fprintf(stderr, "Not getting coocurs as at newline\n");
             continue;
         }
         counter++; // global counter
-        if ((counter % overflow_threshold) == 0) if (verbose > 1) fprintf(stderr,"\033[19G%lld tokens crunched...\n",counter);
+        if ( ((counter % overflow_threshold) == 0) && (verbose > 1))
+            fprintf(stderr,"%lld tokens crunched...\n",counter);
         
-        /*
-        htmp = hashsearch(vocab_hash, str);
-        if (htmp == NULL) {
-            if (verbose > 2) fprintf(stderr, "Not getting coocurs as word not in vocab\n");
-            continue; // Skip out-of-vocabulary words
-        }*/
-        
-        //w2 = htmp->num; // Target word (frequency rank)
-        for (k = j - 1; k >= ( (j > window_size) ? j - window_size : 0 ); k--) { // Iterate over all words to the left of target word, but not past beginning of line
-            w1 = history[k % window_size]; // Context word (frequency rank) (this has a small fart for the first k entries)
+        for (k = j - 1; k >= ( (j > window_size) ? j - window_size : 0 ); k--) { 
+	        // Iterate over all words to the left of target word, but not past beginning of line
+            w1 = history[k % window_size]; 
+            // Context word (frequency rank) (this has a small fart for the first k entries)
             if (verbose > 2) fprintf(stderr, "Adding cooccur between words %d and %d.\n", w1, w2);
             if ( w1 < max_product/(w2+1) ) { // Product is small enough to store in a full array
-                bigram_table[lookup[w1-1] + w2 - 2] += distance_weighting ? 1.0/((real)(j-k)) : 1.0; // Weight by inverse of distance between words if needed
-                if (symmetric > 0) bigram_table[lookup[w2-1] + w1 - 2] += distance_weighting ? 1.0/((real)(j-k)) : 1.0; // If symmetric context is used, exchange roles of w2 and w1 (ie look at right context too)
+                bigram_table[lookup[w1] + w2] += 
+                    distance_weighting ? (real)1.0/((real)(j-k)) : (real)1.0; 
+                // Weight by inverse of distance between words if needed
+                if (symmetric > 0) 
+                    bigram_table[lookup[w2] + w1] += 
+                        distance_weighting ? (real)1.0/((real)(j-k)) : (real)1.0; 
+                /* If symmetric context is used, exchange roles of w2 and w1 
+                 * (i.e. look at right context too) */
             }
-            else { // Product is too big, data is likely to be sparse. Store these entries in a temporary buffer to be sorted, merged (accumulated), and written to file when it gets full.
+            else { 
+                /* Product is too big, data is likely to be sparse.
+                 * Store these entries in a temporary buffer to be sorted, merged (accumulated), 
+                 * and written to file when it gets full. */
                 cr[ind].word1 = w1;
                 cr[ind].word2 = w2;
                 cr[ind].val = distance_weighting ? 1.0/((real)(j-k)) : 1.0;
@@ -381,21 +391,23 @@ int get_cooccurrence() {
                 }
             }
         }
-        history[j % window_size] = w2; // Target word is stored in circular buffer to become context word in the future
-        j++; // local counter
+        history[j % window_size] = w2; 
+        // Target word is stored in circular buffer to become context word in the future
+        j++; // document internal counter
     }
+    free(history);
     
     /* Write out temp buffer for the final time (it may not be full) */
-    write_overflow(cr,ind);
+    fidcounter = write_overflow(cr, ind);
     
     if (verbose > 1) fprintf(stderr,"\033[0GProcessed %lld tokens.\n",counter);
     
     /* Write out full bigram_table, skipping zeros */
     if (verbose > 1) fprintf(stderr, "Writing cooccurrences to disk");
-    
     sprintf(filename,"%s_0000.bin",file_head);
     fid = fopen(filename,"wb");
     j = 1e6;
+
     for (x = 1; x <= vocab_size; x++) {
         if ( (long long) (0.75*log(vocab_size / x)) < j) {
             j = (long long) (0.75*log(vocab_size / x));
@@ -410,9 +422,14 @@ int get_cooccurrence() {
         }
     }
     
-    if (verbose > 1) fprintf(stderr,"%d files in total.\n",fidcounter + 1);
+    if (verbose > 1) fprintf(stderr, "%d files in total.\n", fidcounter + 1);
     fclose(fid);
-    free_resources(vocab_hash, cr, lookup, bigram_table);
+    
+    free_table(vocab_hash);
+    free(cr);
+    free(lookup);
+    free(bigram_table); 
+
     return merge_files(fidcounter + 1); // Merge the sorted temporary files
 }
 

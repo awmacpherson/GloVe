@@ -37,3 +37,10 @@ build/*
 
 # OS X stuff
 ._*
+
+# Notes
+analysis.md
+glove-src.md
+
+# Testing
+working/*

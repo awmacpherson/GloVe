@@ -92,6 +92,26 @@ int hashinsert(HASHREC **ht, char *w) {
 #define BUFSIZE 134217728
 // int BUFSIZE = 1073741824;
 
+int serialize_vocab(VOCAB * vocab, long long max_vocab, long long min_count) {
+    
+    int i;
+    for (i = 0; i < max_vocab; i++) {
+        if (vocab[i].count < min_count) {
+            // If a minimum frequency cutoff exists, truncate vocabulary
+            if (verbose > 0) 
+                fprintf(stderr, "Truncating vocabulary at min count %lld.\n",min_count);
+            break;
+        }
+        printf("%s %d\n", vocab[i].word, vocab[i].code);
+        // warning: prints a newline at the end.
+    }
+    
+    if (i == max_vocab && verbose > 0) 
+        fprintf(stderr, "Truncating vocabulary at size %lld.\n", max_vocab);
+    
+    return i; // number of tokens
+}
+
 /* 
     Definition of the behaviour:
     Assigns non-negative integer codes to words in the order they are
@@ -104,7 +124,7 @@ int hashinsert(HASHREC **ht, char *w) {
     in the vocab file.
 */
 
-int get_counts() {
+int get_counts(void) {
     long long i = 0, j = 0, vocab_size = 12500;
     // char format[20];
     char str[MAX_STRING_LENGTH + 1];
@@ -119,40 +139,29 @@ int get_counts() {
     size_t num_words = 0;
     
     fprintf(stderr, "BUILDING VOCABULARY\n");
-    
     while ( ! feof(fid)) {
         // Insert all tokens into hashtable
-        int nl = get_word(str, fid);
-        if (nl) { // just a newline marker or feof
-            *encodedp++ = -1; 
-            continue;
-        }            
-        if (strcmp(str, "<unk>") == 0) {
-            fprintf(stderr, "\nError, <unk> vector found in corpus.\nPlease remove <unk>s from your corpus (e.g. cat text8 | sed -e 's/<unk>/<raw_unk>/g' > text8.new)");
-            free_table(vocab_hash);
-            return 1;
-        }
-        
-        *encodedp++ = hashinsert(vocab_hash, str);
-        
+	    if ( get_word3(str, fid) )  // just a newline marker or feof
+            *encodedp++ = -1;
+		else 
+			*encodedp++ = hashinsert(vocab_hash, str);
+		
         if (((encodedp-encoded) % BUFSIZE) == 0) {
-//            if (verbose > 1) fprintf(stderr,"\033[11G%lld tokens done.\n", i);
             num_words += fwrite(encoded, sizeof(int), BUFSIZE, encoded_file);
-            if (verbose > 1) fprintf(stderr, "Written %ld encoded tokens to disk.\n", num_words);
+            if (verbose > 1) fprintf(stderr, "Written %zd encoded tokens to disk.\n", num_words);
             encodedp = encoded;
         }
     }
-    if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", i);
+    //if (verbose > 1) fprintf(stderr, "\033[0GProcessed %lld tokens.\n", );
     if (encodedp != encoded) {
         num_words = fwrite(encoded, sizeof(int), *(encodedp-1) - *encoded + 1, encoded_file);
-        fprintf(stderr, "Final chunk: wrote %ld tokens to disk.\n", num_words);
+        fprintf(stderr, "Final chunk: wrote %zd tokens to disk.\n", num_words);
     }
         
     
     fclose(encoded_file);
     
     vocab = malloc(sizeof(VOCAB) * vocab_size);
-    
     for (i = 0; i < TSIZE; i++) { // Migrate vocab to array
         htmp = vocab_hash[i];
         while (htmp != NULL) {
@@ -168,27 +177,32 @@ int get_counts() {
         }
     }
     if (verbose > 1) fprintf(stderr, "Counted %lld unique words.\n", j);
+
+    // SORT BY FREQUENCY
     if (max_vocab > 0 && max_vocab < j)
-        // If the vocabulary exceeds limit, first sort full vocab by frequency without alphabetical tie-breaks.
-        // This results in pseudo-random ordering for words with same frequency, so that when truncated, the words span whole alphabet
+    	
+        /* If the vocabulary exceeds limit, first sort full vocab by frequency 
+         * without alphabetical tie-breaks.
+         * This results in pseudo-random ordering for words with same frequency, 
+         * so that when truncated, the words span whole alphabet */
+
         qsort(vocab, j, sizeof(VOCAB), CompareVocab);
+
     else max_vocab = j;
-    qsort(vocab, max_vocab, sizeof(VOCAB), CompareVocabTie); //After (possibly) truncating, sort (possibly again), breaking ties alphabetically
+    qsort(vocab, max_vocab, sizeof(VOCAB), CompareVocabTie); 
+    //After (possibly) truncating, sort (possibly again), breaking ties alphabetically
     
-    for (i = 0; i < max_vocab; i++) {
-        if (vocab[i].count < min_count) { // If a minimum frequency cutoff exists, truncate vocabulary
-            if (verbose > 0) fprintf(stderr, "Truncating vocabulary at min count %lld.\n",min_count);
-            break;
-        }
-        printf("%s %lld %d\n", vocab[i].word, vocab[i].count, vocab[i].code); // for some reason this prints an extraneous newline.
-    }
-    
-    if (i == max_vocab && max_vocab < j) if (verbose > 0) fprintf(stderr, "Truncating vocabulary at size %lld.\n", max_vocab);
+    // TRUNCATE AND SERIALIZE
+    i = serialize_vocab(vocab, max_vocab, min_count);
     fprintf(stderr, "Using vocabulary of size %lld.\n\n", i);
+    
+    // CLEAN UP
     free_table(vocab_hash);
     free(vocab);
+    
     return 0;
 }
+
 
 int main(int argc, char **argv) {
     if (argc == 2 &&

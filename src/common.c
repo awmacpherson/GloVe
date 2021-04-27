@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "common.h"
 
 #ifdef _MSC_VER
@@ -74,7 +75,7 @@ HASHREC ** inithashtable() {
  */
 int get_word(char *word, FILE *fin) {
     int i = 0, ch;
-    for ( ; ; ) {
+    while ( 1 ) {
         ch = fgetc(fin);
         if (ch == '\r') continue;
         if (i == 0 && ((ch == '\n') || (ch == EOF))) {
@@ -103,6 +104,77 @@ int get_word(char *word, FILE *fin) {
     }
     return 0;
 }
+
+#define nonchar(c) ((c) <= 0x40) || (((c) >= 0x5b) && ((c) <= 0x60)) || (((c) >= 0x7b) && ((c) < 0x80))
+
+/* logic: strip non-character ASCII chars from outside; otherwise break at ASCII whitespace */
+int get_word2(char * wordp, FILE * fin) {
+    char ch;
+    while ( 1 ) {
+	ch = fgetc(fin);
+        if ( (ch == '\n') || (ch == EOF) ) { 
+            *wordp = 0;
+            return 1; // document boundary
+        }
+        if ( isalpha(ch) ) 
+			break;
+	}
+    
+    // now we're inside a token
+    while ( 1 ) {
+        *wordp++ = ch;
+        ch = fgetc(fin);
+
+	if ( (ch == '\n') | (ch == EOF) ) {
+            ungetc(ch, fin); // put it back
+            break;
+        }
+        if ( (ch == '\t') || (ch == ' ') || (ch == '\r') ) // whitespace
+            break;
+    }
+
+    *wordp = 0; // for some reason this is not automatically satisfied
+    for ( ; !isalpha(*wordp) ; *wordp-- = 0 ) ; // backtrack to last letter
+#ifdef DEBUG
+    fprintf(stderr, "%s\n", word);
+#endif
+    return 0;
+}
+
+/* logic: like get_word2, but also lowercase everything.	 */
+int get_word3(char * wordp, FILE * fin) {
+    char ch;
+    while ( 1 ) {
+	ch = fgetc(fin);
+        if ( (ch == '\n') || (ch == EOF) ) { 
+            *wordp = 0;
+            return 1; // document boundary
+        }
+        if ( isalpha(ch) ) 
+			break;
+	}
+    
+    // now we're inside a token
+    while ( 1 ) {
+        *wordp++ = tolower(ch);
+        ch = fgetc(fin);
+
+	if ( (ch == '\n') | (ch == EOF) ) {
+            ungetc(ch, fin); // put it back
+            break;
+        }
+        if ( (ch == '\t') || (ch == ' ') || (ch == '\r') ) // whitespace
+            break;
+    }
+
+    *wordp = 0; // for some reason this is not automatically satisfied
+    for ( ; !isalpha(*wordp) ; *wordp-- = 0 ) ; // backtrack to last letter
+#ifdef DEBUG
+    fprintf(stderr, "%s\n", word);
+#endif
+    return 0;
+}
+
 
 int find_arg(char *str, int argc, char **argv) {
     int i;
