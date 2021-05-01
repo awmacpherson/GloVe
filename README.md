@@ -38,7 +38,9 @@ make encoded
 
 make remap # this runs the script for collapsing unknown tokens (NOT WORKING YET)
 
-make 2-gram # run cooccur.c and shuffle.c, and wrap the output. This might take a while and use a lot of disk space.
+make 2-gram MEMORY=8 WINDOW=5 # run cooccur.c and shuffle.c, and wrap the output. 
+                              # This might take a while and use a lot of disk space. 
+                              # The generated .npz archives will be split into chunks of size MEMORY/2 GB.
 
 make clean # delete intermediate files, leaving only the original corpus, vocab, and two.npz.
            # If you run make 2-gram again, it will fail to find up-to-date dependencies and rebuild everything.
