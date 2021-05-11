@@ -8,7 +8,7 @@ REPO = ..
 all: twogram.txt
 
 vocab: $(CORPUS)
-	$(REPO)build/vocab_count -min-count $(TRUNCATE) < $^ > vocab
+	$(REPO)/build/vocab_count -max-vocab $(TRUNCATE) < $^ > vocab
 
 REMAP_INP = encoded --vocab vocab
 REMAP_OUT = --output-encoded encoded_remap --output-vocab vocab_remap
@@ -17,20 +17,21 @@ REMAP_OUT = --output-encoded encoded_remap --output-vocab vocab_remap
 remap: encoded_remap vocab_remap
 
 encoded_remap vocab_remap: vocab encoded
-	$(REPO)/scripts/reencode $(REMAP_INP) $(REMAP_OUT)
+	$(REPO)/scripts/remap $(REMAP_INP) $(REMAP_OUT)
 
-OL = 536870912
-TWOGRAMOPTS = -max-memory $(MEMORY) -window-size $(WINDOW) -overflow-length $(OL)
+TWOGRAMOPTS = -max-memory $(MEMORY) -window-size $(WINDOW)
 
-twogram: encoded_remap
+2-gram: 2-gram.manifest
+
+2-gram.manifest: encoded_remap
 	$(REPO)/build/cooccur $(TWOGRAMOPTS) < encoded_remap > cooccur.bin
 	$(REPO)/build/shuffle < cooccur.bin > cooccur.shuf.bin
-	$(REPO)/scripts/twogram cooccur.bin -o cooccur -max-memory $(MEMORY)
+	$(REPO)/scripts/twogram cooccur.shuf.bin -o 2-gram --max-memory $(MEMORY)
 
 .PHONY: clean clobber
 
 clean:
-	rm cooccur.bin cooccur.shuf.bin encoded
+	rm cooccur.bin cooccur.shuf.bin encoded encoded_remap
 
 clobber: clean
-	rm vocab twogram.*
+	rm vocab vocab_remap 2-gram.*
