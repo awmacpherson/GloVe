@@ -11,11 +11,13 @@ BO = '@' # native
 CRec = struct.Struct('@iid')
 
 fidcounter = 0
+MANIFEST = []
 
-def write_to_npy(X_i, X_v, length, tar='two-gram.npz'):
-    global fidcounter
-    tar = tar[:-4] + f"-{fidcounter:02}.npz"
+def write_to_npy(X_i, X_v, length, tar='2-gram'):
+    global fidcounter, MANIFEST
+    tar = tar + f"-{fidcounter:02}.npz"
     fidcounter += 1
+    MANIFEST.append(tar)
     print(f"Writing chunk {fidcounter}...")
     np.savez(tar, X_i=X_i[:length], X_v=X_v[:length])
        
@@ -34,7 +36,7 @@ if __name__ == '__main__':
 
     parser = ArgumentParser(description="Convert cooccur file from .bin to .npy.")
     parser.add_argument('src', nargs='?', default='cooccur.bin')
-    parser.add_argument('--output', '-o', nargs='?', default='two-gram.npz')
+    parser.add_argument('--output', '-o', nargs='?', default='2-gram')
     parser.add_argument('--max-memory', type=float, nargs='?', 
                         default=1.0, help="Max memory in GB.")
     args = parser.parse_args()
@@ -56,3 +58,7 @@ if __name__ == '__main__':
             n_crecs = extract_crecs(X_i, X_v, crec)
             
             write_to_npy(X_i, X_v, n_crecs, args.output)
+
+    with open(args.output + '.manifest', 'w') as stream:
+        for tar in MANIFEST:
+            stream.write(tar + '\n')

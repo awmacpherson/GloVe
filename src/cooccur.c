@@ -212,7 +212,7 @@ int merge_files(int num) {
         delete(pq, size);
         _ = fread(&new, sizeof(CREC), 1, fid[i]);
         
-            if (feof(fid[i])) 
+        if (feof(fid[i])) 
             size--;
         else {
             new.id = i;
